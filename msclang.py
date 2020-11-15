@@ -123,7 +123,47 @@ syscalls = {
     "sys_4A" : 74,
     "sys_4B" : 75,
     "sys_4C" : 76,
-    "sys_4D" : 77
+    "sys_4D" : 77,
+    "sys_4E" : 78,
+    "sys_4F" : 79,
+    "sys_50" : 80,
+    "sys_51" : 81,
+    "sys_52" : 82,
+    "sys_53" : 83,
+    "sys_54" : 84,
+    "sys_55" : 85,
+    "sys_56" : 86,
+    "sys_57" : 87,
+    "sys_58" : 88,
+    "sys_59" : 89,
+    "sys_5A" : 90,
+    "sys_5B" : 91,
+    "sys_5C" : 92,
+    "sys_5D" : 93,
+    "sys_5E" : 94,
+    "sys_5F" : 95,
+    "sys_60" : 96,
+    "sys_61" : 97,
+    "sys_62" : 98,
+    "sys_63" : 99,
+    "sys_64" : 100,
+    "sys_65" : 101,
+    "sys_66" : 102,
+    "sys_67" : 103,
+    "sys_68" : 104,
+    "sys_69" : 105,
+    "sys_6A" : 106,
+    "sys_6B" : 107,
+    "sys_6C" : 108,
+    "sys_6D" : 109,
+    "sys_6E" : 110,
+    "sys_6F" : 111,
+    "sys_70" : 112,
+    "sys_71" : 113,
+    "sys_72" : 114,
+    "sys_73" : 115,
+    "sys_74" : 116,
+    "sys_75" : 117,
 }
 
 class CompilerError(Exception):
@@ -320,9 +360,16 @@ def isCommandFloat(cmd, lookingFor):
             return True
     return False
 
+isNot = False
+nodeDict = {}
+nodeCount = 0
+position = 0
+outputAB34 = False
+binaryOpCount = 0
+
 # Take a abstract syntax tree node and recursively compile it
 def compileNode(node, loopParent=None, parentLoopCondition=None):
-    global refs, localVars, localVarTypes, args, xmlInfo
+    global refs, localVars, localVarTypes, args, xmlInfo, nodeDic, nodeCount, isNot, position, outputAB34, binaryOpCount
 
     nodeOut = []
 
@@ -360,6 +407,9 @@ def compileNode(node, loopParent=None, parentLoopCondition=None):
 
     t = type(node)
 
+    nodeDic[nodeCount] = t
+    nodeCount = nodeCount + 1
+    
     # Check the type, depending on which type it is compile as it should
     # If an argument needs to be compiled, recursively call compile on the node
 
@@ -452,13 +502,21 @@ def compileNode(node, loopParent=None, parentLoopCondition=None):
             nodeOut.append(endLabel)
     elif t == c_ast.UnaryOp:
         if node.op == "!":
+            isNot = True
             nodeOut += compileNode(node.expr, loopParent, parentLoopCondition)
             lastCommand = getLastCommand()
-            if lastCommand.command in operationOpposite:
-                lastCommand.command = operationOpposite[lastCommand.command]
-            else:
-                addArg()
-                nodeOut.append(Command(0x2b))
+            
+            addArg()
+            nodeOut.append(Command(0x2B, pushBit=True))
+
+            isNot = False
+            binaryOpCount = 0
+            
+            #if lastCommand.command in operationOpposite:
+            #    lastCommand.command = operationOpposite[lastCommand.command]
+            #else:
+            #    addArg()
+            #    nodeOut.append(Command(0x2b))
         elif node.op == "~":
             nodeOut += compileNode(node.expr, loopParent, parentLoopCondition)
             addArg()
@@ -523,14 +581,42 @@ def compileNode(node, loopParent=None, parentLoopCondition=None):
             addArg()
             nodeOut.append(Command(0x6))
     elif t == c_ast.BinaryOp:
+        localisNot = isNot
+        
         if node.op in ["&&", "||"]:
+            if localisNot:
+                binaryOpCount += 1
+                
             nodeOut += compileNode(node.left, loopParent, parentLoopCondition)
             addArg()
             if node.op == "||":
                 endOrLabel, trueLabel, falseLabel = Label(), Label(), Label()
-                nodeOut.append(Command(0x35, [trueLabel]))
+
+                isFirstOR = False
+                
+                try:
+                    testNode = node.right
+                    while testNode != None:
+                        if type(testNode) == c_ast.BinaryOp:
+                            if testNode.op in ["&&", "||"]:
+                                isFirstOR = True
+                                break
+                        testNode = testNode.right
+                except:
+                    isFirstOR = False
+
+                if localisNot == True and (binaryOpCount >= 2 or isFirstOR) and outputAB34 != True:
+                    nodeOut.append(Command(0x2B, pushBit=True))
+                    print("a")
+                    outputAB34 = True
+                    
+                nodeOut.append(Command(0x34 if outputAB34 else 0x35, [falseLabel] if outputAB34 else [trueLabel]))
                 nodeOut += compileNode(node.right, loopParent, parentLoopCondition)
                 addArg()
+
+                if outputAB34 == True:
+                    nodeOut.append(Command(0x2B, pushBit=True))
+                
                 nodeOut.append(Command(0x34, [falseLabel]))
                 nodeOut.append(trueLabel)
                 nodeOut.append(Command(0xD if args.usePushShort else 0xA, [1]))
@@ -542,6 +628,11 @@ def compileNode(node, loopParent=None, parentLoopCondition=None):
                 nodeOut.append(endOrLabel)
             else:
                 endAndLabel, falseLabel = Label(), Label()
+
+                #if outputAB34 == True:
+                #    nodeOut.append(Command(0x2B, pushBit=True))
+                #    print("b")
+                
                 nodeOut.append(Command(0x34, [falseLabel]))
                 nodeOut += compileNode(node.right, loopParent, parentLoopCondition)
                 addArg()
@@ -557,12 +648,13 @@ def compileNode(node, loopParent=None, parentLoopCondition=None):
             nodeOut += compileNode(node.left, loopParent, parentLoopCondition)
             addArg()
             pos = len(nodeOut)
-            isFloat1 = isCommandFloat(getLastCommand(), False)
+            isFloat1 = isCommandFloat(getLastCommand(), False)    
             nodeOut += compileNode(node.right, loopParent, parentLoopCondition)
             addArg()
             isFloat2 = isCommandFloat(getLastCommand(), isFloat1)
             isFloat = isFloat1 or isFloat2
-            cmd = binaryOperationsFloat[node.op] if isFloat else binaryOperationsInt[node.op]
+            #cmd = binaryOperationsFloat[node.op] if isFloat else binaryOperationsInt[node.op]
+            cmd = binaryOperationsInt[node.op]
             if not cmd in range(0x16, 0x1C) and isFloat and args.autocast:
                 if not isFloat1:
                     nodeOut.insert(pos, Command(0x38,[0]))
@@ -579,13 +671,18 @@ def compileNode(node, loopParent=None, parentLoopCondition=None):
         isIfNot = False
         lastCommand = getLastCommand()
         if lastCommand != None and lastCommand.command == 0x2b:
-            nodeOut.remove(getLastCommand())
+            if outputAB34 == True:
+                nodeOut.remove(getLastCommand())
+                outputAB34 = False
+                print("b")
+            #print(position)
             isIfNot = True
+
         addArg()
         ifFalseLabel = Label()
         if node.iffalse != None:
             endLabel = Label()
-        nodeOut.append(Command(0x35 if isIfNot else 0x34, [ifFalseLabel]))
+        nodeOut.append(Command(0x34 if isIfNot else 0x34, [ifFalseLabel]))
         nodeOut += compileNode(node.iftrue, loopParent, parentLoopCondition)
         if node.iffalse != None:
             nodeOut.append(Command(0x36, [endLabel]))
@@ -709,10 +806,13 @@ def compileNode(node, loopParent=None, parentLoopCondition=None):
             nodeOut.append(Command(0x31, [len(funcArgs)]))
         elif name in syscalls:
             sysNum = syscalls[name]
-            for arg in node.args.exprs:
-                nodeOut += compileNode(arg, loopParent, parentLoopCondition)
-                addArg()
-            nodeOut.append(Command(0x2d, [len(node.args.exprs), sysNum]))
+            if hasattr(node.args, 'exprs'):
+                for arg in node.args.exprs:
+                    nodeOut += compileNode(arg, loopParent, parentLoopCondition)
+                    addArg()
+                nodeOut.append(Command(0x2d, [len(node.args.exprs), sysNum]))
+            else:
+                nodeOut.append(Command(0x2d, [0, sysNum]))
         else:
             endLabel = Label()
             if name != None and not name in refs.functions:
@@ -738,6 +838,9 @@ def compileNode(node, loopParent=None, parentLoopCondition=None):
         print(node.__slots__)
         print()
 
+    nodeCount = nodeCount - 1
+    position += len(nodeOut)
+
     return nodeOut
 
 def compileScript(func):
@@ -746,9 +849,17 @@ def compileScript(func):
     localVarTypes = dict([(x.name, x.type.type.names[-1]) for x in func.decl.type.args.params] if func.decl.type.args != None else [])
     argCount = len(localVars)
     script = []
+    i = 0
     if func.body.block_items != None:
         for node in func.body.block_items:
-            script += compileNode(node)
+            global nodeDic, nodeCount, outputAB34, isNot, binaryOpCount
+            nodeDic = {}
+            nodeCount = 0
+            outputAB34 = False
+            isNot = False
+            binaryOpCount = 0
+            script += compileNode(node) 
+            i = i + 1
     script.insert(0, Command(2, [argCount, len(localVars)]))
     script.append(Command(3))
     return script
@@ -816,14 +927,14 @@ def writeToFile(msc):
 
     # Write file header
     fileBytes = MSC_MAGIC
-    fileBytes += struct.pack('<L', currentPos)
-    fileBytes += struct.pack('<L', 0x10 if not 'main' in refs.functions else refs.scriptPositions[refs.functions.index('main')])
-    fileBytes += struct.pack('<L', len(msc.scripts))
-    fileBytes += struct.pack('<L', 0x16)#This probably doesn't matter?
-    fileBytes += struct.pack('<L', maxStringLength)
-    fileBytes += struct.pack('<L', len(msc.strings))
-    fileBytes += struct.pack('<L', 0)
-    fileBytes += struct.pack('<L', 0)
+    fileBytes += struct.pack('>L', currentPos)
+    fileBytes += struct.pack('>L', 0x10 if not 'main' in refs.functions else refs.scriptPositions[refs.functions.index('main')])
+    fileBytes += struct.pack('>L', len(msc.scripts))
+    fileBytes += struct.pack('>L', 0x16)#This probably doesn't matter?
+    fileBytes += struct.pack('>L', maxStringLength)
+    fileBytes += struct.pack('>L', len(msc.strings))
+    fileBytes += struct.pack('>L', 0)
+    fileBytes += struct.pack('>L', 0)
     fileBytes += b'\x00' * 0x10
 
     # Write each script
@@ -841,7 +952,7 @@ def writeToFile(msc):
 
     # Write script positions (may be unused tbh)
     for i in range(len(msc.scripts)):
-        fileBytes += struct.pack('<L',refs.scriptPositions[i])
+        fileBytes += struct.pack('>L',refs.scriptPositions[i])
 
     # Write more padding
     if len(fileBytes) % 0x10 != 0:
@@ -878,9 +989,10 @@ def compileAST(ast):
                 refs.functionTypes[decl.decl.name] = decl.decl.type.type.type.names[0]
         else:
             raise CompilerError("Error at %s: unsupported statement, structure or declaration. Use --ignore-invalid to avoid this error." % str(decl.coord))
-
+    
     for decl in ast.ext:
         if isinstance(decl, c_ast.FuncDef):
+            print(decl.decl.name) #List all functions name
             newScript = MscScript()
             newScript.cmds = compileScript(decl)
             msc.scripts.append(newScript)
