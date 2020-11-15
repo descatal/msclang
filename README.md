@@ -12,6 +12,7 @@ Interestingly, if there is only 1 binaryOp of either || or &&, it will not requi
 I am super confused by this, and upon deciphering it in terms of stack and commands, what I found is that the boolean logic is the same.
 It is not like the script doesn't use 0x35 in other parts, so I don't get why the game requires this specific change. 
 4. The game either accepts binaryOperationsFloat, or the conditions for isCommandFloat is not the same for my game's script. 
+5. The game only accepts pushInt, so -i arg is needed
 
 ### Requirements
 
