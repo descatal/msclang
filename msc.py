@@ -8,7 +8,7 @@ isPython3 = version_info >= (3,)
 assert isPython3 #If this fails switch to python 3
 import struct, tempfile
 
-MSC_MAGIC = b'\xB2\xAC\xBC\xBA\xE6\x90\x32\x01\xFD\x02\x00\x00\x00\x00\x00\x00'
+MSC_MAGIC = b'\xB2\xAC\xBC\xBA\x01\x32\x90\xE6\x16\xAF\x21\x0A\x00\x00\x00\x00'
 
 COMMAND_IDS = {
     "nop"            : 0x0,
@@ -531,7 +531,7 @@ class MscFile:
     def __len__(self):
         return len(self.scripts)
 
-    def readFromFile(self, f, headerEndianess = '<'):
+    def readFromFile(self, f, headerEndianess = '>'):
         f.seek(0x10)
         entriesOffset = readInt(f, headerEndianess) + 0x30
         endOfScripts = entriesOffset

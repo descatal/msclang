@@ -607,7 +607,7 @@ def compileNode(node, loopParent=None, parentLoopCondition=None):
 
                 if localisNot == True and (binaryOpCount >= 2 or isFirstOR) and outputAB34 != True:
                     nodeOut.append(Command(0x2B, pushBit=True))
-                    print("a")
+                    #print("a")
                     outputAB34 = True
                     
                 nodeOut.append(Command(0x34 if outputAB34 else 0x35, [falseLabel] if outputAB34 else [trueLabel]))
@@ -674,7 +674,7 @@ def compileNode(node, loopParent=None, parentLoopCondition=None):
             if outputAB34 == True:
                 nodeOut.remove(getLastCommand())
                 outputAB34 = False
-                print("b")
+                #print("b")
             #print(position)
             isIfNot = True
 
@@ -930,7 +930,7 @@ def writeToFile(msc):
     fileBytes += struct.pack('>L', currentPos)
     fileBytes += struct.pack('>L', 0x10 if not 'main' in refs.functions else refs.scriptPositions[refs.functions.index('main')])
     fileBytes += struct.pack('>L', len(msc.scripts))
-    fileBytes += struct.pack('>L', 0x16)#This probably doesn't matter?
+    fileBytes += struct.pack('>L', 0x16)#This probably doesn't matter? A: It doesn't.
     fileBytes += struct.pack('>L', maxStringLength)
     fileBytes += struct.pack('>L', len(msc.strings))
     fileBytes += struct.pack('>L', 0)
@@ -992,7 +992,7 @@ def compileAST(ast):
     
     for decl in ast.ext:
         if isinstance(decl, c_ast.FuncDef):
-            print(decl.decl.name) #List all functions name
+            #print(decl.decl.name) #List all functions name
             newScript = MscScript()
             newScript.cmds = compileScript(decl)
             msc.scripts.append(newScript)
