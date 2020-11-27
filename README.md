@@ -3,7 +3,7 @@
 msclang is a custom compiler written in python made to compile C to MSC bytecode. MSC bytecode is a bytecode language used by Super Smash Brothers for Wii U in order to control character logic. It's name comes from the mix of "clang" a popular C compiler and, of course, MSC itself, however no part of clang is used and the name is only intended for pleasure of the user. This in no way indicates any affiliation with clang or it's developers.
 
 ### Changes made to make the script work with Gundam Extreme Vs. Full Boost
-1. The original msclang.py only accepts sys_functions with params passed in.
+1. The original msclang.py only accepts sys_functions with args passed in.
 2. Tht game system doesn't recognize operation opposite for unaryOp "!", and will insist on using 0x2b on every occasion, thus I removed the removeLastCommand in the If operation.
 3. This is the weirdest one: For conditions where the whole boolean operations are not (!), the game system requires the binaryOp's "||" 0x35 and 0x34 to be changed to 0xAB and 0x34.
 So the condition is as follows: if (!(var1 != 0  var2 != 1 && var3 == 3))
